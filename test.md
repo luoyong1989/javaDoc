@@ -8,10 +8,10 @@
 
 
 -----
-
-    @Bean
-    public TaskScheduler threadPoolTaskScheduler() {
-        ThreadPoolTaskScheduler poolTaskScheduler = new ThreadPoolTaskScheduler();
-        poolTaskScheduler.setPoolSize(10);
-        return new ThreadPoolTaskScheduler();
-    }
+		
+	@Bean
+	public TaskScheduler threadPoolTaskScheduler() {
+	    ThreadPoolTaskScheduler poolTaskScheduler = new ThreadPoolTaskScheduler();
+	    poolTaskScheduler.setPoolSize(10);
+	    return new ThreadPoolTaskScheduler();
+	}
