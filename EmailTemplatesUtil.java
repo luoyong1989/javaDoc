@@ -1,4 +1,4 @@
-package com.keruyun.store.market.utils;
+
 
 import com.keruyun.store.base.entity.mongo.ConsultationRecord;
 import org.apache.commons.lang.StringUtils;
