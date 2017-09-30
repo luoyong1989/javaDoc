@@ -3,12 +3,11 @@
 import com.keruyun.store.base.entity.mongo.ConsultationRecord;
 import org.apache.commons.lang.StringUtils;
 
+import java.io.*;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -16,37 +15,28 @@ import java.util.regex.Pattern;
  * Created by ly on 2017/9/29.
  */
 public class EmailTemplatesUtil {
-    public final static String CONSULTATION = "<html lang=\"en\">" +
-            "<body>" +
-            "    <h3>尊敬的{developerName}:</h3>" +
-            "    <b>    你有如下咨询信息，请及时处理</b><br>" +
-            "    <b>    咨询品牌: {brandName}</b><br>" +
-            "    <b>    咨询门店: {shopName}</b><br>" +
-            "    <b>    咨询来源: {source}</b><br>" +
-            "    <b>    联系人: {contact}</b><br>" +
-            "    <b>    性别: {gender}</b><br>" +
-            "    <b>    联系电话: {tel}</b><br>" +
-            "    <b>    电子邮箱: {email}</b><br>" +
-            "    <b>    咨询描述: {describe}</b><br>" +
-            "    <b>    咨询时间: {serverCreateTime}</b><br><p>" +
-            "    <b>来自客如云应用市场</b><br>" +
-            "</body>" +
-            "</html>";
-
+    private final static Map<String, String> TEMPLATES;
     private final static String DATE_CLASS_NAME = "class java.util.Date";
     private final static char PREFIX = '{';
     private final static char SUFFIX = '}';
     private final static SimpleDateFormat sf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-    public static final String DEF_REGEX = "\\{(.+?)\\}";
+    private final static String ROOT_PATH = "/templates/email/";
+    private final static  String DEF_REGEX = "\\{(.+?)\\}";
+
+    static {
+        TEMPLATES = getTemplates();
+    }
 
     /**
      * 使用 Matcher 进行创建
-     * @param template
+     *
+     * @param templateName
      * @param data
      * @param regex
      * @return
      */
-    public static String render(String template, Object data, String regex) {
+    public static String render(String templateName, Object data, String regex) {
+        String template = getTemplateByName(templateName);
         if (StringUtils.isBlank(template)) {
             return "";
         }
@@ -77,6 +67,31 @@ public class EmailTemplatesUtil {
 
     }
 
+
+    /**
+     * 使用 char 替换创建
+     *
+     * @param record   数据源
+     * @param templateName 模板
+     * @return
+     */
+    public static String convert(Object record, final String templateName) {
+        String result = getTemplateByName(templateName);
+        List<String> list = getField(result);
+        for (String s : list) {
+            String v = getValue(s, record);
+            result = result.replace(getKey(s), v);
+        }
+        return result;
+    }
+
+    private static String getTemplateByName(String name){
+        if (!TEMPLATES.containsKey(name)){
+            throw new NullPointerException("没有找到对应的模板："+name);
+        }
+        return TEMPLATES.get(name);
+    }
+
     private static String getValue(String name, Object record) {
         String v = "--";
         try {
@@ -95,23 +110,6 @@ public class EmailTemplatesUtil {
             return v;
         }
         return v;
-    }
-
-
-    /**
-     * 使用 char 替换创建
-     * @param record   数据源
-     * @param template 模板
-     * @return
-     */
-    public static String convert(Object record, final String template) {
-        String result = template;
-        List<String> list = getField(template);
-        for (String s : list) {
-            String v = getValue(s,record);
-            result = result.replace(getKey(s), v);
-        }
-        return result;
     }
 
     private static String getKey(String name) {
@@ -159,6 +157,41 @@ public class EmailTemplatesUtil {
         return s;
     }
 
+    private static Map<String, String> getTemplates() {
+        Map<String, String> map = new HashMap<>();
+        String rootPath = EmailTemplatesUtil.class.getResource(ROOT_PATH).getPath();
+        File file = new File(rootPath);
+        File[] files = file.listFiles();
+        for (File f : files) {
+            String name = f.getName();
+            name = name.substring(0, name.indexOf("."));
+            map.put(name, getStr(f));
+        }
+        return map;
+    }
+
+    private static String getStr(File file) {
+        BufferedReader reader = null;
+        try {
+            FileInputStream stream = new FileInputStream(file);
+            StringBuilder builder = new StringBuilder();
+            String temp;
+            reader = new BufferedReader(new InputStreamReader(stream));
+            while ((temp = reader.readLine()) != null) {
+                builder.append(temp);
+            }
+            return builder.toString();
+        } catch (Exception e) {
+            try {
+                if (null != reader) {
+                    reader.close();
+                }
+            } catch (IOException ex) {
+            }
+        }
+        return null;
+    }
+
 
     //------TEST---------
 
@@ -185,6 +218,15 @@ public class EmailTemplatesUtil {
     }
 
     public static void main(String[] args) {
+//        getTemplates();
+        /*
+        String str = getStr();
+        System.out.println("str = " + str);
+        */
+
+
+
+        /*
         ConsultationRecord record = getR();
         Long t1 = System.currentTimeMillis();
         String fs = render(CONSULTATION,record,DEF_REGEX);
@@ -196,6 +238,7 @@ public class EmailTemplatesUtil {
         fs = convert(record,CONSULTATION);
         t2 = System.currentTimeMillis();
         System.out.println("convert Time  = " + (t2 - t1));
+        */
 
     }
 }
