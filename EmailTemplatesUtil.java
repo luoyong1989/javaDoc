@@ -1,10 +1,14 @@
-
+package com.keruyun.store.market.utils;
 
 import com.keruyun.store.base.entity.mongo.ConsultationRecord;
 import org.apache.commons.lang.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
+import org.springframework.core.io.support.ResourcePatternResolver;
 
 import java.io.*;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -15,13 +19,17 @@ import java.util.regex.Pattern;
  * Created by ly on 2017/9/29.
  */
 public class EmailTemplatesUtil {
+    private final static Logger logger = LoggerFactory.getLogger(EmailTemplatesUtil.class);
     private final static Map<String, String> TEMPLATES;
     private final static String DATE_CLASS_NAME = "class java.util.Date";
+    private final static String MAP_CLASS_NAME = "class java.util.HashMap";
     private final static char PREFIX = '{';
     private final static char SUFFIX = '}';
     private final static SimpleDateFormat sf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-    private final static String ROOT_PATH = "/templates/email/";
-    private final static  String DEF_REGEX = "\\{(.+?)\\}";
+    private final static String ROOT_PATH = "templates/email";
+    private final static String DEF_REGEX = "\\{(.+?)\\}";
+    private final static PathMatchingResourcePatternResolver resourcePatternResolver = new PathMatchingResourcePatternResolver();
+
 
     static {
         TEMPLATES = getTemplates();
@@ -71,7 +79,7 @@ public class EmailTemplatesUtil {
     /**
      * 使用 char 替换创建
      *
-     * @param record   数据源
+     * @param record       数据源
      * @param templateName 模板
      * @return
      */
@@ -85,15 +93,26 @@ public class EmailTemplatesUtil {
         return result;
     }
 
-    private static String getTemplateByName(String name){
-        if (!TEMPLATES.containsKey(name)){
-            throw new NullPointerException("没有找到对应的模板："+name);
+    private static String getTemplateByName(String name) {
+        if (!TEMPLATES.containsKey(name)) {
+            throw new NullPointerException("没有找到对应的模板：" + name);
         }
         return TEMPLATES.get(name);
     }
 
     private static String getValue(String name, Object record) {
         String v = "--";
+        if (StringUtils.isBlank(name) || null == record) {
+            return v;
+        }
+        if (record.getClass().toString().equals(MAP_CLASS_NAME)) {
+            HashMap<String, Object> map = (HashMap<String, Object>) record;
+            if (map.containsKey(name)) {
+                return String.valueOf(map.get(name));
+            }
+            return v;
+        }
+
         try {
             Method m = record.getClass().getMethod("get" + getMethodName(name));
             Object o = m.invoke(record);
@@ -106,7 +125,8 @@ public class EmailTemplatesUtil {
                     v = String.valueOf(o);
                 }
             }
-        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+        } catch (Exception e) {
+            logger.error("反射出现问题:" + e.getMessage(), e);
             return v;
         }
         return v;
@@ -157,19 +177,45 @@ public class EmailTemplatesUtil {
         return s;
     }
 
+    /**
+     * 构建模板列表
+     *
+     * @return
+     */
     private static Map<String, String> getTemplates() {
         Map<String, String> map = new HashMap<>();
-        String rootPath = EmailTemplatesUtil.class.getResource(ROOT_PATH).getPath();
-        File file = new File(rootPath);
-        File[] files = file.listFiles();
-        for (File f : files) {
-            String name = f.getName();
-            name = name.substring(0, name.indexOf("."));
-            map.put(name, getStr(f));
+        try {
+            Resource[] resources = getResource(ROOT_PATH);
+            for (Resource resource : resources) {
+                InputStream inputStream = resource.getInputStream();
+                String content = getContent(inputStream);
+                String name = resource.getFilename();
+                name = name.substring(0, name.indexOf("."));
+                map.put(name, content);
+            }
+        } catch (Exception e) {
+            logger.error("读取模板错误", e);
         }
         return map;
     }
 
+    /**
+     * 获取资源
+     *
+     * @param classpath
+     * @return
+     * @throws IOException
+     */
+    public static Resource[] getResource(String classpath) throws IOException {
+        return resourcePatternResolver.getResources(ResourcePatternResolver.CLASSPATH_ALL_URL_PREFIX + classpath + "/*");
+    }
+
+    /**
+     * 读取文件类容
+     *
+     * @param file
+     * @return
+     */
     private static String getStr(File file) {
         BufferedReader reader = null;
         try {
@@ -190,6 +236,28 @@ public class EmailTemplatesUtil {
             }
         }
         return null;
+    }
+
+    /**
+     * 输出输入流的内容
+     *
+     * @param is
+     * @throws IOException
+     */
+    private static String getContent(InputStream is) throws IOException {
+        BufferedReader br = new BufferedReader(new InputStreamReader(is));
+        StringBuilder builder = new StringBuilder();
+        String line;
+        while ((line = br.readLine()) != null) {
+            builder.append(line);
+        }
+        if (is != null) {
+            is.close();
+        }
+        if (br != null) {
+            br.close();
+        }
+        return builder.toString();
     }
 
 
@@ -240,5 +308,23 @@ public class EmailTemplatesUtil {
         System.out.println("convert Time  = " + (t2 - t1));
         */
 
+       /* Map map = new HashMap();
+        String string = map.getClass().toString();
+        System.out.println("string = " + string);*/
+
+        try {
+            Resource[] resources = getResource(ROOT_PATH);
+            for (Resource resource : resources) {
+
+                InputStream inputStream = resource.getInputStream();
+                String s = getContent(inputStream);
+                System.out.println("s = " + s);
+
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
+
 }
